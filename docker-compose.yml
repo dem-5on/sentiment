@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  news-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: telegram-news-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TZ=UTC
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - news-bot-network
+
+networks:
+  news-bot-network:
+    driver: bridge
+
+volumes:
+  logs:
+    driver: local
