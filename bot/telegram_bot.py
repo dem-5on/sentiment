@@ -1,6 +1,5 @@
 import config
 import logging
-from io import BytesIO
 from telegram.constants import ParseMode
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -58,21 +57,10 @@ class TelegramNewsBot:
     async def _send_news_with_image(self, news_item, caption, reply_markup):
         """Try to send news as photo with caption"""
         try:
-            # Import scraper to use image validation
-            from scraper.news_scraper import NewsScraper
-            scraper = NewsScraper()
-            
-            # Validate and download image
-            is_valid, image_data = scraper.validate_image_quality(news_item['image_url'])
-            
-            if not is_valid or not image_data:
-                logging.info(f"Image validation failed for: {news_item['image_url']}")
-                return False
-            
-            # Send photo with caption
+            # Send photo directly from URL (no validation)
             await self.bot.send_photo(
                 chat_id=self.chat_id,
-                photo=BytesIO(image_data),
+                photo=news_item['image_url'],
                 caption=caption,
                 parse_mode=ParseMode.MARKDOWN,
                 reply_markup=reply_markup
@@ -119,7 +107,7 @@ class TelegramNewsBot:
                 caption += f"🏷️ _{keyword}_ • 📰 _{source}_"
             else:
                 # If still too long, truncate title too
-                max_title_len = 100
+                max_title_len = 200
                 truncated_title = title[:max_title_len] + "..." if len(title) > max_title_len else title
                 caption = f"*{index}. {truncated_title}*\n\n"
                 caption += f"🏷️ _{keyword}_ • 📰 _{source}_"

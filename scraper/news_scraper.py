@@ -1,11 +1,9 @@
-from io import BytesIO
-from tkinter import Image
-import feedparser
-import logging
-from datetime import datetime
 import re
-from urllib.parse import urlparse
+import logging
 import requests
+import feedparser
+from datetime import datetime
+from urllib.parse import urlparse
 
 class NewsScraper:
     def __init__(self):
@@ -211,68 +209,6 @@ class NewsScraper:
             logging.error(f"Error validating image URL {url}: {str(e)}")
             return False
         
-    
-    def validate_image_quality(self, image_url):
-        """Download and validate image quality"""
-        try:
-            response = requests.get(image_url, timeout=10, stream=True)
-            response.raise_for_status()
-            
-            # Check file size (skip if too large or too small)
-            content_length = response.headers.get('content-length')
-            if content_length:
-                size = int(content_length)
-                if size > 5 * 1024 * 1024:  # 5MB max
-                    return False, None
-                if size < 1024:  # 1KB min
-                    return False, None
-            
-            # Download first chunk to check image
-            chunk_size = 8192
-            image_data = BytesIO()
-            total_size = 0
-            
-            for chunk in response.iter_content(chunk_size=chunk_size):
-                if chunk:
-                    total_size += len(chunk)
-                    image_data.write(chunk)
-                    
-                    # Stop if too large
-                    if total_size > 5 * 1024 * 1024:
-                        return False, None
-                    
-                    # Try to validate image after downloading enough data
-                    if total_size >= 8192:
-                        try:
-                            image_data.seek(0)
-                            with Image.open(image_data) as img:
-                                width, height = img.size
-                                
-                                # Skip if image is too small (likely ads/logos)
-                                if width < 200 or height < 200:
-                                    return False, None
-                                
-                                # Skip if aspect ratio suggests it's a banner/ad
-                                aspect_ratio = width / height
-                                if aspect_ratio > 4 or aspect_ratio < 0.25:
-                                    return False, None
-                                
-                                # Image looks good, continue downloading
-                                break
-                        except:
-                            # Continue downloading, might just need more data
-                            continue
-            
-            # Get final image data
-            image_data.seek(0)
-            final_data = image_data.getvalue()
-            
-            return True, final_data
-            
-        except Exception as e:
-            logging.error(f"Error validating image {image_url}: {str(e)}")
-            return False, None
-
     
     def _parse_date(self, entry):
         """Parse published date from RSS entry"""
