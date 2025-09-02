@@ -1,6 +1,6 @@
+import config
 from telegram import Update
 from telegram.ext import ContextTypes, CommandHandler
-import config
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /start command"""

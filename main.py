@@ -1,15 +1,13 @@
-import asyncio
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-import time
-import logging
-from datetime import datetime
-import schedule
-from telegram.ext import Application
-
 import config
-from news_scraper import NewsScraper
-from telegram_bot import TelegramNewsBot
-from handlers import handlers
+import asyncio
+import logging
+import schedule
+from bot.handlers import handlers
+from telegram.ext import Application
+from scraper.news_scraper import NewsScraper
+from bot.telegram_bot import TelegramNewsBot
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
 
 # Set up logging
 logging.basicConfig(
@@ -83,7 +81,7 @@ class NewsBot:
             
             # Send startup message
             await self.telegram_bot.send_message(
-                f"🚀 News bot started!\nScheduled for {config.SCHEDULE_TIME} daily\nKeywords: {', '.join(config.KEYWORDS)}\nRSS Feeds: {len(config.RSS_FEEDS)} sources"
+                f"🚀 NewsPal bot started!\n\nScheduled for {config.SCHEDULE_TIME} daily\nKeywords: {', '.join(config.KEYWORDS)}\nRSS Feeds: {len(config.RSS_FEEDS)} sources\n"
             )
             
             # Keep the bot running
