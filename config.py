@@ -16,6 +16,16 @@ SCHEDULE_TIME = os.getenv('SCHEDULE_TIME', '08:00')
 MAX_NEWS_PER_KEYWORD = int(os.getenv('MAX_NEWS_PER_KEYWORD', 3))
 NEWS_CACHE_HOURS = int(os.getenv('NEWS_CACHE_HOURS', 24))
 
+# Crypto Configuration
+CRYPTO_SYMBOLS = ['BTC/USDT', 'ETH/USDT', 'BNB/USDT', 'TRB/USDT', 'XRP/USDT', 'TON/USDT']
+
 # Clean up empty strings from lists
 KEYWORDS = [k.strip() for k in KEYWORDS if k.strip()]
+
+# Clean up and format RSS feed URLs
 RSS_FEEDS = [f.strip() for f in RSS_FEEDS if f.strip()]
+SITE = [
+    f.strip().removeprefix("http://").removesuffix("/rss")
+    for f in RSS_FEEDS
+    if f.strip()
+]
