@@ -1,0 +1,53 @@
+{
+  "users": [
+    {
+      "id": 7832792864,
+      "username": "on1yparagrap7",
+      "first_seen": "2025-09-08T10:45:58.704315",
+      "last_seen": "2025-09-08T10:51:12.639627"
+    },
+    {
+      "id": 8474775663,
+      "username": "user_8474775663",
+      "first_seen": "2025-09-08T10:51:46.438748",
+      "last_seen": "2025-09-08T11:01:24.696353"
+    },
+    {
+      "id": 7079913105,
+      "username": "HereIsAugustine",
+      "first_seen": "2025-09-08T11:43:08.829798",
+      "last_seen": "2025-09-08T11:43:08.829828"
+    }
+  ],
+  "daily_stats": {
+    "2025-09-08": {
+      "news_requests": 5,
+      "ai_requests": 7,
+      "crypto_requests": 4,
+      "unique_users": [
+        7079913105,
+        7832792864,
+        7832792864,
+        7832792864,
+        8474775663,
+        8474775663,
+        8474775663,
+        8474775663,
+        8474775663,
+        8474775663,
+        8474775663,
+        7079913105
+      ]
+    }
+  },
+  "gemini_requests": {
+    "api_calls": 7,
+    "cli_calls": 0,
+    "tokens_used": 1801,
+    "errors": 2
+  },
+  "last_report_date": "2025-09-08T01:21:57.370663",
+  "total_news_requests": 5,
+  "total_ai_requests": 7,
+  "total_crypto_requests": 4
+}

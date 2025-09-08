@@ -3,11 +3,13 @@ import schedule
 import logging
 import threading
 import time
+from datetime import datetime, timedelta
 from telegram.ext import Application
 import config
 from scraper.news_scraper import NewsScraper
 from bot.telegram_bot import TelegramNewsBot
 from bot.handlers import handlers
+from monitor import UsageTracker
 
 # Set up logging
 logging.basicConfig(
@@ -20,13 +22,31 @@ class NewsBot:
     def __init__(self):
         self.scraper = NewsScraper()
         self.telegram_bot = TelegramNewsBot()
+        self.usage_tracker = UsageTracker()
         self.app = None
         self.running = True
         
+
+    async def send_daily_usage_report(self):
+        """Send daily usage report if needed"""
+        try:
+            if self.usage_tracker.should_send_report():
+                await self.usage_tracker.send_daily_report()
+                logging.info("Daily usage report check completed")
+        except Exception as e:
+            logging.error(f"Error in daily usage report: {str(e)}")
+            await self.telegram_bot.send_error(f"Error in daily usage report: {str(e)}")
+
     async def fetch_and_send_news(self):
-        """Main function to scrape and send news"""
+        """Main function to scrape and send news to all users"""
         try:
             logger.info("Starting scheduled news fetch...")
+            
+            # Get all user chat IDs
+            user_chat_ids = self.usage_tracker.get_all_user_chat_ids()
+            if not user_chat_ids:
+                logger.warning("No users found to send scheduled news")
+                return
             
             # Scrape news
             news_items = self.scraper.scrape_news(
@@ -36,17 +56,26 @@ class NewsBot:
             )
             
             logger.info(f"Found {len(news_items)} news items")
+            logger.info(f"Sending to {len(user_chat_ids)} users")
             
-            # Send news via Telegram
-            await self.telegram_bot.send_news(news_items)
+            # Send news to all users
+            successful_sends = 0
+            failed_sends = 0
             
-            logger.info("Scheduled news sent successfully!")
+            for chat_id in user_chat_ids:
+                try:
+                    await self.telegram_bot.send_news(chat_id, news_items)
+                    successful_sends += 1
+                    # Small delay to avoid rate limiting
+                    await asyncio.sleep(1)
+                except Exception as e:
+                    logger.error(f"Failed to send news to user {chat_id}: {str(e)}")
+                    failed_sends += 1
             
+            logger.info(f"Scheduled news sent! Success: {successful_sends}, Failed: {failed_sends}")
         except Exception as e:
-            error_msg = f"Error in scheduled news fetch: {str(e)}"
-            logger.error(error_msg)
-            await self.telegram_bot.send_error(error_msg)
-    
+            logger.error(f"Error during scheduled news fetch: {str(e)}")
+        
     def run_scheduled_job(self):
         """Wrapper to run async function in sync context for scheduler"""
         try:
@@ -56,15 +85,39 @@ class NewsBot:
             logger.error(f"Error in scheduled job wrapper: {str(e)}")
 
 
+    # Modify the schedule_worker method to include usage report
     def schedule_worker(self):
         """Worker thread for handling scheduled jobs"""
         schedule.every().day.at(config.SCHEDULE_TIME).do(self.run_scheduled_job)
+        
+        # Add daily usage report at a different time (e.g., 30 minutes after news)
+        report_time = self._get_report_time()
+        schedule.every().day.at(report_time).do(self.run_usage_report)
+        
         logger.info(f"Scheduled news delivery at {config.SCHEDULE_TIME} daily")
+        logger.info(f"Scheduled usage reports at {report_time} daily")
         
         while self.running:
             schedule.run_pending()
             time.sleep(60)  # Check every minute
     
+    def _get_report_time(self):
+        """Get report time (30 minutes after news time)"""
+        try:
+            news_time = datetime.strptime(config.SCHEDULE_TIME, '%H:%M')
+            report_time = news_time + timedelta(minutes=30)
+            return report_time.strftime('%H:%M')
+        except:
+            return "08:30"  # Fallback time
+        
+    
+    def run_usage_report(self):
+        """Wrapper to run async usage report function"""
+        try:
+            asyncio.run(self.send_daily_usage_report())
+        except Exception as e:
+            logger.error(f"Error in usage report wrapper: {str(e)}")
+
     async def setup_telegram_bot(self):
         """Setup Telegram bot with handlers"""
         self.app = Application.builder().token(config.TELEGRAM_BOT_TOKEN).build()
@@ -88,6 +141,8 @@ class NewsBot:
             
             # Send startup message
             await self.telegram_bot.send_message(
+                chat_id=config.DEVELOPER_CHAT_ID,
+                text=
                 f"🚀 *News Bot Started Successfully!*\n\n"
                 f"⏰ Scheduled for: {config.SCHEDULE_TIME} daily\n\n"
                 f"🏷️ Keywords: {', '.join(config.KEYWORDS)}\n\n"

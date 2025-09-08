@@ -16,6 +16,12 @@ SCHEDULE_TIME = os.getenv('SCHEDULE_TIME', '08:00')
 MAX_NEWS_PER_KEYWORD = int(os.getenv('MAX_NEWS_PER_KEYWORD', 3))
 NEWS_CACHE_HOURS = int(os.getenv('NEWS_CACHE_HOURS', 24))
 
+# Gemini AI Configuration
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+
+# Your personal chat ID for reports
+DEVELOPER_CHAT_ID = os.getenv('DEVELOPER_CHAT_ID')  
+
 # Crypto Configuration
 CRYPTO_SYMBOLS = ['BTC/USDT', 'ETH/USDT', 'BNB/USDT', 'TRB/USDT', 'XRP/USDT', 'TON/USDT']
 
