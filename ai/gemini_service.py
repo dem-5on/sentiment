@@ -102,7 +102,6 @@ Create a summary with these 3 clearly separated sections:
 
 **RESPONSE FORMAT**
 Please provide the summary in the following format:
-TITLE: [Article Title]
 1. 🔍 KEY FACTS:
 • [Fact 1]
 • [Fact 2]
@@ -181,7 +180,6 @@ Create a combined summary that synthesizes information from all articles into th
 
 **RESPONSE FORMAT**
 Please provide the summary in the following format:
-TITLE: [Article Title]
 1. 🔍 KEY FACTS:
 • [Fact 1]
 • [Fact 2]

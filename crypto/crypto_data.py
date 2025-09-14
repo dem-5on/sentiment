@@ -13,7 +13,15 @@ class CryptoDataFetcher:
         """Fetch current price for a crypto symbol"""
         try:
             ticker = self.exchange.fetch_ticker(symbol)
-            return ticker["last"]
+            return {
+                'symbol': symbol,
+                'price': ticker['last'],
+                'change_24h_percent': ticker['percentage'],
+                'volume_24h': ticker['quoteVolume'],
+                'high_24h': ticker['high'],
+                'low_24h': ticker['low'],
+                'timestamp': datetime.fromtimestamp(ticker['timestamp'] / 1000)
+            }
         except Exception as e:
             logging.error(f"Error fetching price for {symbol}: {str(e)}")
             return None
@@ -65,3 +73,33 @@ class CryptoDataFetcher:
         except Exception as e:
             logging.error(f"Error getting crypto summary: {str(e)}")
             return None
+    
+# # Example usage:
+# if __name__ == "__main__":
+#     fetcher = CryptoDataFetcher()
+    
+#     # For single crypto - returns flattened data
+#     btc_data = fetcher.get_crypto_summary(['BTC/USDT'])
+#     if btc_data and 'BTC/USDT' in btc_data['prices']:
+#         btc = btc_data['prices']['BTC/USDT']
+#         print("Single crypto data:")
+#         print(f"Symbol: {btc['symbol']}")
+#         print(f"Price: ${btc['price']:,.2f}")
+#         print(f"24h Change: {btc['change_24h_percent']:+.2f}%")
+#         print(f"24h Volume: ${btc['volume_24h']:,.0f}")
+#         print(f"24h High: ${btc['high_24h']:,.2f}")
+#         print(f"24h Low: ${btc['low_24h']:,.2f}")
+
+#         if btc_data['fear_greed']:
+#             fg = btc_data['fear_greed']
+#             print(f"Fear & Greed: {fg['value']} ({fg['classification']})")
+
+    
+#     print("\n" + "-"*50 + "\n")
+    
+#     # For multiple cryptos - returns nested structure
+#     multi_data = fetcher.get_crypto_summary(['BTC/USDT', 'ETH/USDT','TON/USDT','XRP/USDT','TRB/USDT'])
+#     if multi_data:
+#         print("Multiple crypto data:")
+#         for symbol, data in multi_data['prices'].items():
+#             print(f"{symbol}: ${data['price']:,.2f} ({data['change_24h_percent']:+.2f}%)")

@@ -21,7 +21,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     username = update.effective_user.username
     usage_tracker.track_user(user_id, username)
-    chat_id = update.effective_chat.id  # Get user's chat ID
+    chat_id = update.effective_chat.id
 
     message = f"🤖 *Welcome to News Bot!*\n\n"
     message += f"📅 Scheduled time: {config.SCHEDULE_TIME}\n\n"

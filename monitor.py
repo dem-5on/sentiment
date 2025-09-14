@@ -25,7 +25,7 @@ class UsageTracker:
             else:
                 # Initialize with default data
                 return {
-                    'users': set(),
+                    'users': list(),
                     'daily_stats': {},
                     'gemini_requests': {
                         'api_calls': 0,
@@ -45,7 +45,7 @@ class UsageTracker:
     def _get_default_data(self) -> Dict[str, Any]:
         """Get default data structure"""
         return {
-            'users': set(),
+            'users': list(),
             'daily_stats': {},
             'gemini_requests': {
                 'api_calls': 0,
@@ -137,7 +137,7 @@ class UsageTracker:
                     'news_requests': 0,
                     'ai_requests': 0,
                     'crypto_requests': 0,
-                    'unique_users': set()
+                    'unique_users': list()
                 }
             
             self.data['daily_stats'][today]['news_requests'] += 1
@@ -167,7 +167,7 @@ class UsageTracker:
                     'news_requests': 0,
                     'ai_requests': 0,
                     'crypto_requests': 0,
-                    'unique_users': set()
+                    'unique_users': list()
                 }
             
             self.data['daily_stats'][today]['ai_requests'] += 1
@@ -191,7 +191,7 @@ class UsageTracker:
                     'news_requests': 0,
                     'ai_requests': 0,
                     'crypto_requests': 0,
-                    'unique_users': set()
+                    'unique_users': list()
                 }
             
             self.data['daily_stats'][today]['crypto_requests'] += 1

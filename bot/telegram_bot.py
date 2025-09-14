@@ -82,56 +82,51 @@ class TelegramNewsBot:
         message = f"⚠️ *News Bot Error*\n\n{error_message}"
         await self.send_message(message, parse_mode=ParseMode.MARKDOWN)
 
-    async def send_crypto_data(self, chat_id,crypto_summary):
-        """Send crypto prices and fear & greed index"""
+    async def send_crypto_data(self, chat_id, crypto_summary):
+        """Send detailed crypto market data"""
         try:
             if not crypto_summary:
-                await self.send_message("❌ Unable to fetch crypto data at the moment.")
+                await self.send_message(chat_id, "❌ Unable to fetch crypto data at the moment.")
                 return
-            
-            message = "💰 *Crypto Market Update*\n\n"
-            
-            # Add prices
-            if crypto_summary['prices']:
-                message += "📊 *Current Prices:*\n"
-                for symbol, price in crypto_summary['prices'].items():
-                    # Format price nicely
-                    if price >= 1:
-                        formatted_price = f"${price:,.2f}"
-                    else:
-                        formatted_price = f"${price:.6f}"
-                    message += f"• {symbol}: `{formatted_price}`\n"
-                message += "\n"
-            
+
+            message = "💰 *CRYPTO DATA*\n\n"
+
+            # Loop through each crypto symbol
+            if crypto_summary.get('prices'):
+                for symbol, data in crypto_summary['prices'].items():
+                    price = data.get('price', 0)
+                    change = data.get('change_24h_percent', 0)
+                    volume = data.get('volume_24h', 0)
+                    high = data.get('high_24h', 0)
+                    low = data.get('low_24h', 0)
+
+                    # Format nicely
+                    message += f"*Symbol:* {data['symbol']}\n"
+                    message += f"💵 Current Price: ${price:,.2f}\n"
+                    message += f"📈 24h % Change: {change:+.2f}%\n"
+                    message += f"📊 24h Volume: {volume:,.0f}\n"
+                    message += f"🔼 24h High: ${high:,.2f}\n"
+                    message += f"🔽 24h Low: ${low:,.2f}\n"
+                    message += "───────────────────────\n\n"
+
             # Add Fear & Greed Index
-            if crypto_summary['fear_greed']:
+            if crypto_summary.get('fear_greed'):
                 fg = crypto_summary['fear_greed']
-                
-                # Add emoji based on classification
-                classification = fg['classification'].lower()
-                if 'extreme fear' in classification:
-                    emoji = "😨"
-                elif 'fear' in classification:
-                    emoji = "😰"
-                elif 'neutral' in classification:
-                    emoji = "😐"
-                elif 'greed' in classification:
-                    emoji = "🤑"
-                elif 'extreme greed' in classification:
-                    emoji = "🚀"
-                else:
-                    emoji = "📊"
-                
-                message += f"📈 *Fear & Greed Index:*\n"
-                message += f"{emoji} {fg['value']}/100 - _{fg['classification'].title()}_\n\n"
-            
-            message += f"🕒 Updated: {crypto_summary['timestamp'].strftime('%H:%M:%S')}"
+                classification = fg['classification'].title()
+                value = fg['value']
+
+                message += f"📈 *Fear & Greed Index:* {value}/100 - {classification}\n\n"
+
+            # Add timestamp
+            if "timestamp" in crypto_summary:
+                message += f"🕒 Updated: {crypto_summary['timestamp'].strftime('%H:%M:%S')}"
 
             await self.send_message(chat_id, message, parse_mode=ParseMode.MARKDOWN)
 
         except Exception as e:
             logging.error(f"Error sending crypto data: {str(e)}")
-            await self.send_message("❌ Error formatting crypto data.")
+            await self.send_message(chat_id, "❌ Error formatting crypto data.")
+
 
     def get_ai_news_keyboard(self):
         """Create AI news selection keyboard"""

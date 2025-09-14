@@ -1,2 +1,9 @@
 env/
 .env
+bot_state.json
+bot_usage_data.json
+data.json
+__pycache__/
+*.pyc
+*.pyo
+logs/
