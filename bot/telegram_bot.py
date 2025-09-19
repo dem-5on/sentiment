@@ -9,13 +9,36 @@ class TelegramNewsBot:
         self.bot = Bot(token=config.TELEGRAM_BOT_TOKEN)
         
     def get_main_keyboard(self):
-        """Create the main reply keyboard with buttons"""
         keyboard = [
             [KeyboardButton("📰 Get News Now"), KeyboardButton("🤖 AI Summarized News")],
-            [KeyboardButton("💰 Crypto Data"), KeyboardButton("📊 Status")], 
+            [KeyboardButton("💰 Crypto Data"), KeyboardButton("📊 Status")],
+            [KeyboardButton("📋 My Assets"), KeyboardButton("📋 My Sources")],
+            [KeyboardButton("➕ Add"), KeyboardButton("❌ Remove")],
             [KeyboardButton("❓ Help")],
         ]
         return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
+
+    def get_add_keyboard(self):
+        keyboard = [
+            [KeyboardButton("➕ Add Asset"), KeyboardButton("➕ Add News Source")],
+            [KeyboardButton("⬅️ Back to Main Menu")],
+        ]
+        return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+    def get_add_keyboard(self):
+        keyboard = [
+            [KeyboardButton("➕ Add Asset"), KeyboardButton("➕ Add News Source")],
+            [KeyboardButton("⬅️ Back")]
+        ]
+        return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
+
+    def get_remove_keyboard(self):
+        keyboard = [
+            [KeyboardButton("❌ Remove Asset"), KeyboardButton("❌ Remove News Source")],
+            [KeyboardButton("⬅️ Back")]
+        ]
+        return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
+
 
     async def send_news(self, chat_id, news_items):
         """Send news items to Telegram chat"""
@@ -126,6 +149,14 @@ class TelegramNewsBot:
         except Exception as e:
             logging.error(f"Error sending crypto data: {str(e)}")
             await self.send_message(chat_id, "❌ Error formatting crypto data.")
+
+    def get_add_keyboard(self):
+        """Create Add menu keyboard"""
+        keyboard = [
+            [KeyboardButton("➕ Add Asset"), KeyboardButton("➕ Add News Source")],
+            [KeyboardButton("⬅️ Back to Main Menu")],
+        ]
+        return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
 
 
     def get_ai_news_keyboard(self):

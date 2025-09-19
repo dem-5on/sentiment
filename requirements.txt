@@ -8,3 +8,7 @@ pillow
 ccxt
 pandas
 google-generativeai
+sqlalchemy
+psycopg2-binary
+alembic
+supabase

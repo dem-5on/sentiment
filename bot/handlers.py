@@ -6,22 +6,74 @@ from ai.gemini_service import GeminiService
 from scraper.news_scraper import NewsScraper
 from bot.telegram_bot import TelegramNewsBot
 from crypto.crypto_data import CryptoDataFetcher
+from database.database_service import DatabaseService
+from utils.url_normalize import normalize_rss_url, is_valid_rss_feed
 from telegram.ext import ContextTypes, CommandHandler, MessageHandler, filters
 
 
 # Initialize usage tracker
 usage_tracker = UsageTracker()
 
+WAITING_FOR_ASSET = "waiting_for_asset"
+WAITING_FOR_SOURCE = "waiting_for_source"
+WAITING_FOR_REMOVE_ASSET = "waiting_for_remove_asset"
+WAITING_FOR_REMOVE_SOURCE = "waiting_for_remove_source"
+
+
+def get_user_settings(user_id: int) -> dict:
+    """Get user settings from database with fallback to defaults"""
+    try:
+        with DatabaseService() as db:
+            assets = db.get_user_assets(str(user_id))
+            news_sources = db.get_user_news_sources(str(user_id))
+            return {
+                'assets': assets or config.CRYPTO_SYMBOLS[:3],
+                'news_sources': news_sources or config.RSS_FEEDS[:3]
+            }
+    except Exception as e:
+        logging.error(f"Error getting user settings: {str(e)}")
+        return {
+            'assets': config.CRYPTO_SYMBOLS[:3],
+            'news_sources': config.RSS_FEEDS[:3]
+        }
+
+def update_user_settings(user_id: int, assets: list = None, news_sources: list = None) -> bool:
+    """Update user settings in database"""
+    try:
+        with DatabaseService() as db:
+            if assets is not None:
+                for asset in assets:
+                    db.add_user_asset(str(user_id), asset)
+            if news_sources is not None:
+                for source in news_sources:
+                    db.add_news_source(str(user_id), source)
+            return True
+    except Exception as e:
+        logging.error(f"Error updating user settings: {str(e)}")
+        return False
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /start command and show main keyboard"""
     bot = TelegramNewsBot()
 
-    # Add tracking
-
     user_id = update.effective_user.id
     username = update.effective_user.username
-    usage_tracker.track_user(user_id, username)
     chat_id = update.effective_chat.id
+
+    logging.info(f"Start command received from user {user_id} ({username})")
+
+    # Add user to both database and usage tracker
+    try:
+        with DatabaseService() as db:
+            logging.info(f"Attempting to add user to database: {user_id}")
+            user = db.get_or_create_user(str(user_id), username)
+            logging.info(f"Successfully processed user in database: {user_id}")
+    except Exception as e:
+        logging.error(f"Database error in start command: {str(e)}", exc_info=True)
+    
+    # Fallback tracking
+    usage_tracker.track_user(user_id, username)
 
     message = f"🤖 *Welcome to News Bot!*\n\n"
     message += f"📅 Scheduled time: {config.SCHEDULE_TIME}\n\n"
@@ -41,12 +93,30 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle status command"""
     bot = TelegramNewsBot()
     
+    user_id = update.effective_user.id
+    username = update.effective_user.username
+
+    # Update user in database
+    try:
+        with DatabaseService() as db:
+            db.get_or_create_user(str(user_id), username)
+    except Exception as e:
+        logging.error(f"Database error in status command: {str(e)}")
+    
+    # Get user settings
+    user_settings = get_user_settings(user_id)
+    
     message = f"📊 *Bot Status*\n\n"
     message += f"⏰ Schedule: {config.SCHEDULE_TIME} daily\n\n"
     message += f"🏷️ Keywords: `{', '.join(config.KEYWORDS)}`\n\n"
     message += f"📰 Max news per keyword: {config.MAX_NEWS_PER_KEYWORD}\n\n"
     message += f"🕒 Cache duration: {config.NEWS_CACHE_HOURS} hours\n\n"
     message += f"📈 Fear & Greed Index: Enabled\n\n"
+    
+    # Add user-specific settings
+    message += f"💼 *Your Settings:*\n"
+    message += f"• Tracked Crypto: `{', '.join(user_settings['assets'])}`\n"
+    message += f"• News Sources: {len(user_settings['news_sources'])} active feeds\n\n"
 
     # Add crypto symbols
     if hasattr(config, 'CRYPTO_SYMBOLS') and config.CRYPTO_SYMBOLS:
@@ -124,9 +194,15 @@ async def crypto_data_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     # Add tracking
     user_id = update.effective_user.id
     username = update.effective_user.username
+    chat_id = update.effective_chat.id
+    
+    # Get user's preferred assets
+    user_settings = get_user_settings(user_id)
+    crypto_symbols = user_settings['assets'] if user_settings['assets'] else config.CRYPTO_SYMBOLS
+    
+    # Track the request
     usage_tracker.track_user(user_id, username)
     usage_tracker.track_crypto_request(user_id)
-    chat_id = update.effective_chat.id
 
     await update.message.reply_text(
         "💰 Fetching crypto prices and market data...",
@@ -136,10 +212,17 @@ async def crypto_data_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     try:
         # Fetch crypto data
         crypto_fetcher = CryptoDataFetcher()
-        crypto_summary = crypto_fetcher.get_crypto_summary(config.CRYPTO_SYMBOLS)
+        crypto_summary = crypto_fetcher.get_crypto_summary(crypto_symbols)
         
         if crypto_summary:
-            await bot.send_crypto_data(chat_id,crypto_summary)
+            # Update user data in database
+            try:
+                with DatabaseService() as db:
+                    db.get_or_create_user(str(user_id), username)
+            except Exception as e:
+                logging.error(f"Database error in crypto command: {str(e)}")
+            
+            await bot.send_crypto_data(chat_id, crypto_summary)
         else:
             await update.message.reply_text(
                 "❌ Unable to fetch crypto data at the moment. Please try again later.",
@@ -163,9 +246,15 @@ async def get_news_now(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Add tracking
     user_id = update.effective_user.id
     username = update.effective_user.username
+    chat_id = update.effective_chat.id
+    
+    # Get user's preferred sources
+    user_settings = get_user_settings(user_id)
+    rss_feeds = user_settings['news_sources'] if user_settings['news_sources'] else config.RSS_FEEDS
+    
+    # Track the request
     usage_tracker.track_user(user_id, username)
     usage_tracker.track_news_request(user_id, "manual")
-    chat_id = update.effective_chat.id
 
     await update.message.reply_text(
         "🔍 Fetching latest news from all RSS feeds... This may take a moment.",
@@ -177,7 +266,7 @@ async def get_news_now(update: Update, context: ContextTypes.DEFAULT_TYPE):
         scraper = NewsScraper()
         news_items = scraper.scrape_news(
             keywords=config.KEYWORDS,
-            rss_feeds=config.RSS_FEEDS,
+            rss_feeds=rss_feeds,
             max_results=config.MAX_NEWS_PER_KEYWORD
         )
         
@@ -202,30 +291,162 @@ async def get_news_now(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle text messages from markup buttons"""
     text = update.message.text
-    
+    bot = TelegramNewsBot()
+    user_id = str(update.effective_user.id)
+
+    # --- Main menu commands ---
     if text == "📊 Status":
         await status_command(update, context)
+
     elif text == "❓ Help":
         await help_command(update, context)
+
     elif text == "💰 Crypto Data":
         await crypto_data_command(update, context)
+
     elif text == "📰 Get News Now":
         await get_news_now(update, context)
+
     elif text == "🤖 AI Summarized News":
         await ai_news_menu(update, context)
+
     elif text == "📄 Individual Summaries":
         await ai_individual_news(update, context)
+
     elif text == "📋 Combined Summary":
         await ai_combined_news(update, context)
+
     elif text == "⬅️ Back to Main Menu":
         await start(update, context)
+
+    elif text == "➕ Add":
+        await add_menu(update, context)
+
+    elif text == "➕ Add Asset":
+        await update.message.reply_text("💼 Send me the asset symbol (e.g., BTC or BTC/USDT).")
+        context.user_data["state"] = WAITING_FOR_ASSET
+
+    elif text == "➕ Add News Source":
+        await update.message.reply_text("🌐 Send me the news source URL (e.g., https://cointelegraph.com/rss).")
+        context.user_data["state"] = WAITING_FOR_SOURCE
+
+    elif text == "📋 My Assets":
+        with DatabaseService() as db:
+            assets = db.get_user_assets(user_id)
+        if assets:
+            msg = "📋 *Your Assets:*\n\n" + "\n".join(f"• {a}" for a in assets)
+            context.user_data["state"] = WAITING_FOR_REMOVE_ASSET
+        else:
+            msg = "You don’t have any saved assets."
+        await update.message.reply_text(msg, parse_mode="Markdown")
+
+    elif text == "📋 My Sources":
+        with DatabaseService() as db:
+            sources = db.get_user_news_sources(user_id)
+        if sources:
+            msg = "📋 *Your News Sources:*\n\n" + "\n".join(f"• {s}" for s in sources)
+            context.user_data["state"] = WAITING_FOR_REMOVE_SOURCE
+        else:
+            msg = "You don’t have any saved news sources."
+        await update.message.reply_text(msg, parse_mode="Markdown")
+
+    elif text == "❌ Remove":
+        await update.message.reply_text("Choose what you want to remove:", reply_markup=bot.get_remove_keyboard())
+
+    elif text == "⬅️ Back":
+        context.user_data["state"] = None
+        await update.message.reply_text("Back to main menu:", reply_markup=bot.get_main_keyboard())
+
+    # --- Stateful inputs (adding/removing) ---
+    elif context.user_data.get("state") == WAITING_FOR_ASSET:
+        symbol = text.strip().upper()
+        if "/" not in symbol:
+            symbol = f"{symbol}/USDT"
+        with DatabaseService() as db:
+            db.add_user_asset(user_id, symbol)
+        await update.message.reply_text(f"✅ Asset *{symbol}* added to your watchlist.", parse_mode="Markdown")
+        context.user_data["state"] = None
+
+    elif context.user_data.get("state") == WAITING_FOR_SOURCE:
+        raw_url = text.strip()
+        url = normalize_rss_url(raw_url)
+        with DatabaseService() as db:
+            success = db.add_news_source(user_id, url)
+        if success:
+            await update.message.reply_text(f"✅ News source added:\n{url}", parse_mode="Markdown", reply_markup=bot.get_main_keyboard())
+        else:
+            await update.message.reply_text(f"❌ Failed to add news source:\n{raw_url}", parse_mode="Markdown", reply_markup=bot.get_main_keyboard())
+        context.user_data["state"] = None
+
+    elif context.user_data.get("state") == WAITING_FOR_REMOVE_ASSET:
+        # Ignore menu button clicks
+        if text in ["❌ Remove Asset", "❌ Remove News Source", "❌ Remove", "⬅️ Back"]:
+            return
+
+        symbol = text.strip().upper()
+        if "/" not in symbol:
+            symbol = f"{symbol}/USDT"
+
+        with DatabaseService() as db:
+            success = db.remove_user_asset(user_id, symbol)
+
+        if success:
+            await update.message.reply_text(f"🗑️ Asset *{symbol}* removed from your watchlist.", parse_mode="Markdown")
+        else:
+            await update.message.reply_text(f"❌ Could not remove asset *{symbol}*.", parse_mode="Markdown")
+
+        context.user_data["state"] = None
+
+
+    elif context.user_data.get("state") == WAITING_FOR_REMOVE_SOURCE:
+        # Ignore menu button clicks
+        if text in ["❌ Remove Asset", "❌ Remove News Source", "❌ Remove", "⬅️ Back"]:
+            return
+
+        raw_url = text.strip()
+        url = normalize_rss_url(raw_url)
+
+        with DatabaseService() as db:
+            success = db.remove_news_source(user_id, url)
+
+        if success:
+            await update.message.reply_text(f"🗑️ News source removed:\n{url}")
+        else:
+            await update.message.reply_text(f"❌ Could not remove news source:\n{raw_url}")
+
+        context.user_data["state"] = None
+
+
+    elif text == "❌ Remove Asset":
+        with DatabaseService() as db:
+            assets = db.get_user_assets(user_id)
+        if assets:
+            msg = "📋 *Your Assets:*\n" + "\n".join(f"• {a}" for a in assets)
+            msg += "\n\n❌ Send me the asset symbol to remove (e.g., BTC/USDT)."
+            context.user_data["state"] = WAITING_FOR_REMOVE_ASSET
+        else:
+            msg = "You don’t have any saved assets."
+        await update.message.reply_text(msg, parse_mode="Markdown")
+
+    elif text == "❌ Remove News Source":
+        with DatabaseService() as db:
+            sources = db.get_user_news_sources(user_id)
+        if sources:
+            msg = "📋 *Your News Sources:*\n" + "\n".join(f"• {s}" for s in sources)
+            msg += "\n\n❌ Send me the URL to remove."
+            context.user_data["state"] = WAITING_FOR_REMOVE_SOURCE
+        else:
+            msg = "You don’t have any saved news sources."
+        await update.message.reply_text(msg, parse_mode="Markdown")
+
+
+    # --- Unknown command ---
     else:
-        # Unknown command
-        bot = TelegramNewsBot()
         await update.message.reply_text(
             "⚠️ Unknown command. Use the buttons below or type /help for available commands.",
             reply_markup=bot.get_main_keyboard()
         )
+
 
 
 async def ai_news_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -410,6 +631,17 @@ async def developer_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     except Exception as e:
         await update.message.reply_text(f"⚠️ Error generating report: {str(e)}")
+
+async def add_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    bot = TelegramNewsBot()
+    message = "➕ *Add Menu*\n\nChoose what you want to add:"
+    await update.message.reply_text(
+        message,
+        parse_mode='Markdown',
+        reply_markup=bot.get_add_keyboard()
+    )
+
+
 
 # Add to handlers list
 handlers = [

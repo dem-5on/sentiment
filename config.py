@@ -23,10 +23,13 @@ GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 DEVELOPER_CHAT_ID = os.getenv('DEVELOPER_CHAT_ID')  
 
 # Crypto Configuration
-CRYPTO_SYMBOLS = ['BTC/USDT', 'ETH/USDT', 'BNB/USDT', 'TRB/USDT', 'XRP/USDT', 'TON/USDT']
+CRYPTO_SYMBOLS = ['BTC/USDT', 'ETH/USDT']
 
 # Clean up empty strings from lists
 KEYWORDS = [k.strip() for k in KEYWORDS if k.strip()]
+
+#Database Configuration
+DATABASE_URL = os.getenv('DATABASE_URL')
 
 # Clean up and format RSS feed URLs
 RSS_FEEDS = [f.strip() for f in RSS_FEEDS if f.strip()]
